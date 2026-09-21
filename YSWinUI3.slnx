@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="YSWinUI3.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="YSWinUI3.Demo\YSWinUI3.Demo.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+</Solution>
