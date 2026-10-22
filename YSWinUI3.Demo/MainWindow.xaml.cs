@@ -1,12 +1,15 @@
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.AnimatedVisuals;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.IO;
+using System.Linq;
 using YSWinUI3.Demo.Pages;
+using YSWinUI3.Navigation;
 using YSWinUI3.Settings;
 using YSWinUI3.Window;
 
@@ -15,6 +18,7 @@ namespace YSWinUI3.Demo;
 public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
 {
     private readonly YSWindowController _windowController;
+    private readonly StoreNavigationStyle _storeNavigationStyle;
     private readonly YSSettingsStore _settingsStore = new("YSWinUI3.Demo");
 
     public YSAppSettings Settings { get; }
@@ -24,6 +28,7 @@ public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
     {
         InitializeComponent();
         Settings = _settingsStore.Load<YSAppSettings>();
+        ConfigureNavigationIcons();
 
         _windowController = YSWindowController.Attach(
             this,
@@ -52,7 +57,64 @@ public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
         ApplyTheme(Settings.Theme.ToString(), save: false);
         ApplyBackdrop(Settings.Backdrop.ToString(), save: false);
         ApplyNavMode(Settings.NavigationMode, save: false);
+        _storeNavigationStyle = StoreNavigationStyle.Attach(
+            RootNavView,
+            new StoreNavigationOptions { StyleSettingsItem = false });
         Closed += MainWindow_Closed;
+    }
+
+    private void ConfigureNavigationIcons()
+    {
+        var iconFont = new FontFamily("ms-appx:///Assets/SegoeFluentIcons.ttf#Segoe Fluent Icons");
+        SetNavigationIcons((NavigationViewItem)RootNavView.MenuItems[0], "\uE80F", "\uEA8A", iconFont);
+        SetNavigationIcons((NavigationViewItem)RootNavView.MenuItems[1], "\uE946", "\uF167", iconFont);
+
+        SettingsNavItem.Icon = new AnimatedIcon
+        {
+            Source = new AnimatedSettingsVisualSource(),
+            FallbackIconSource = new FontIconSource
+            {
+                Glyph = "\uF8B0",
+                FontFamily = iconFont
+            },
+            Width = 24,
+            Height = 24,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        StoreNavigationStyle.SetSelectedIcon(SettingsNavItem, new FontIcon
+        {
+            Glyph = "\uF8B0",
+            FontFamily = iconFont,
+            FontSize = 20,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+    }
+
+    private static void SetNavigationIcons(
+        NavigationViewItem item,
+        string outlineGlyph,
+        string filledGlyph,
+        FontFamily iconFont)
+    {
+        item.Icon = new FontIcon
+        {
+            Glyph = outlineGlyph,
+            FontFamily = iconFont,
+            FontSize = 20,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        StoreNavigationStyle.SetSelectedIcon(item, new FontIcon
+        {
+            Glyph = filledGlyph,
+            FontFamily = iconFont,
+            FontSize = 20,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
     }
 
     public void ApplyTheme(string theme, bool save = true)
@@ -148,6 +210,7 @@ public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
             {
                 case "home": NavigateToPage(typeof(HomePage)); break;
                 case "about": NavigateToPage(typeof(AboutPage)); break;
+                case "settings": NavigateToPage(typeof(SettingsPage)); break;
             }
         }
     }
@@ -157,7 +220,7 @@ public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
         RootNavView.IsBackEnabled = ContentFrame.CanGoBack;
         if (e.SourcePageType == typeof(SettingsPage))
         {
-            RootNavView.SelectedItem = RootNavView.SettingsItem;
+            RootNavView.SelectedItem = SettingsNavItem;
             return;
         }
 
@@ -181,7 +244,7 @@ public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
 
     private void SelectItemByTag(string tag)
     {
-        foreach (object item in RootNavView.MenuItems)
+        foreach (object item in RootNavView.MenuItems.Concat(RootNavView.FooterMenuItems))
         {
             if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == tag)
             {
@@ -212,6 +275,7 @@ public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
     private void MainWindow_Closed(object sender, WindowEventArgs args)
     {
         if (Content is FrameworkElement root) root.ActualThemeChanged -= Root_ActualThemeChanged;
+        _storeNavigationStyle.Dispose();
         _windowController.Dispose();
     }
 

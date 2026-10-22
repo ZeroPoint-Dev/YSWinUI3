@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<PriInfo>
+	<ResourceMap name="YSWinUI3" version="1.0" primary="true">
+		<Qualifiers/>
+		<ResourceMapSubtree name="Files">
+			<ResourceMapSubtree name="YSWinUI3">
+				<ResourceMapSubtree name="Controls">
+					<NamedResource name="CustomCaptionButtons.xbf" uri="ms-resource://YSWinUI3/Files/YSWinUI3/Controls/CustomCaptionButtons.xbf">
+						<Candidate type="Path">
+							<Value>YSWinUI3\Controls\CustomCaptionButtons.xbf</Value>
+						</Candidate>
+					</NamedResource>
+				</ResourceMapSubtree>
+			</ResourceMapSubtree>
+		</ResourceMapSubtree>
+	</ResourceMap>
+</PriInfo>

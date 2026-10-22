@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>YSWinUI3</name>
+    </assembly>
+    <members>
+        <member name="M:YSWinUI3.Controls.CustomCaptionButtons.InitializeComponent">
+            <summary>
+            InitializeComponent()
+            </summary>
+        </member>
+        <member name="M:YSWinUI3.Controls.CustomCaptionButtons.Connect(System.Int32,System.Object)">
+            <summary>
+            Connect()
+            </summary>
+        </member>
+        <member name="M:YSWinUI3.Controls.CustomCaptionButtons.GetBindingConnector(System.Int32,System.Object)">
+            <summary>
+            GetBindingConnector(int connectionId, object target)
+            </summary>
+        </member>
+        <member name="T:YSWinUI3.Navigation.StoreNavigationOptions">
+            <summary>Layout options for the opt-in Microsoft Store-style left navigation.</summary>
+        </member>
+        <member name="P:YSWinUI3.Navigation.StoreNavigationOptions.PaneWidth">
+            <summary>Open-pane width while the custom left navigation is active. Set null to keep the current width.</summary>
+        </member>
+        <member name="P:YSWinUI3.Navigation.StoreNavigationOptions.StyleSettingsItem">
+            <summary>Include the built-in NavigationView settings item when it is visible.</summary>
+        </member>
+        <member name="P:YSWinUI3.Navigation.StoreNavigationOptions.HidePaneToggle">
+            <summary>Hide the pane toggle while the custom left-pane layout is active.</summary>
+        </member>
+        <member name="T:YSWinUI3.Navigation.StoreNavigationStyle">
+            <summary>
+            Applies an optional, Microsoft Store-style card layout to a NavigationView's
+            left-pane menu items. Default NavigationView styling is restored in other
+            pane modes and when this controller is disposed. The style is opt-in through
+            <see cref="M:YSWinUI3.Navigation.StoreNavigationStyle.Attach(Microsoft.UI.Xaml.Controls.NavigationView,YSWinUI3.Navigation.StoreNavigationOptions)"/>.
+            </summary>
+        </member>
+        <member name="M:YSWinUI3.Navigation.StoreNavigationStyle.GetSelectedIcon(Microsoft.UI.Xaml.DependencyObject)">
+            <summary>Gets the filled or alternate icon shown when a menu item is selected.</summary>
+        </member>
+        <member name="M:YSWinUI3.Navigation.StoreNavigationStyle.SetSelectedIcon(Microsoft.UI.Xaml.DependencyObject,Microsoft.UI.Xaml.Controls.IconElement)">
+            <summary>Sets the filled or alternate icon shown when a menu item is selected.</summary>
+        </member>
+        <member name="M:YSWinUI3.Navigation.StoreNavigationStyle.Attach(Microsoft.UI.Xaml.Controls.NavigationView,YSWinUI3.Navigation.StoreNavigationOptions)">
+            <summary>
+            Enables the custom card layout for this NavigationView when its pane mode
+            is <see cref="F:Microsoft.UI.Xaml.Controls.NavigationViewPaneDisplayMode.Left"/>. The returned
+            controller must be disposed with the owning window.
+            </summary>
+        </member>
+        <member name="M:YSWinUI3.Navigation.StoreNavigationStyle.Refresh">
+            <summary>Refreshes the layout after menu items are added or removed.</summary>
+        </member>
+        <member name="T:YSWinUI3.YSWinUI3_XamlTypeInfo.XamlMetaDataProvider">
+            <summary>
+            Main class for providing metadata for the app or library
+            </summary>
+        </member>
+        <member name="M:YSWinUI3.YSWinUI3_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(System.Type)">
+            <summary>
+            GetXamlType(Type)
+            </summary>
+        </member>
+        <member name="M:YSWinUI3.YSWinUI3_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(System.String)">
+            <summary>
+            GetXamlType(String)
+            </summary>
+        </member>
+        <member name="M:YSWinUI3.YSWinUI3_XamlTypeInfo.XamlMetaDataProvider.GetXmlnsDefinitions">
+            <summary>
+            GetXmlnsDefinitions()
+            </summary>
+        </member>
+    </members>
+</doc>

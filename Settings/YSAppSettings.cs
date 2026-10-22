@@ -7,5 +7,5 @@ public sealed class YSAppSettings
 {
     public ElementTheme Theme { get; set; } = ElementTheme.Default;
     public BackdropKind Backdrop { get; set; } = BackdropKind.MicaAlt;
-    public string NavigationMode { get; set; } = "Auto";
+    public string NavigationMode { get; set; } = "Left";
 }

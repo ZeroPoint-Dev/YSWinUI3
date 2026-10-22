@@ -13,15 +13,20 @@
             <Thickness x:Key="NavigationViewContentMargin">0,48,0,0</Thickness>
             <Thickness x:Key="NavigationViewHeaderMargin">56,34,0,0</Thickness>
             <Thickness x:Key="NavigationViewPageContentMargin">0,0,0,0</Thickness>
+            <x:Double x:Key="NavigationViewSelectionIndicatorHeight">24</x:Double>
             <CornerRadius x:Key="NavigationViewContentGridCornerRadius">8,0,0,0</CornerRadius>
             <Thickness x:Key="NavigationViewContentGridBorderThickness">1,1,0,0</Thickness>
         </Grid.Resources>
 
         <NavigationView x:Name="RootNavView"
                     IsBackButtonVisible="Visible"
+                    IsSettingsVisible="False"
                     IsTitleBarAutoPaddingEnabled="False"
-                    IsPaneToggleButtonVisible="True"
-                    PaneDisplayMode="Auto"
+                    IsPaneToggleButtonVisible="False"
+                    IsPaneOpen="True"
+                    CompactPaneLength="48"
+                    OpenPaneLength="72"
+                    PaneDisplayMode="Left"
                     Loaded="RootNavView_Loaded"
                     BackRequested="RootNavView_BackRequested"
                     DisplayModeChanged="RootNavView_DisplayModeChanged"
@@ -40,6 +45,10 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
+
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="SettingsNavItem" Content="设置" Tag="settings" />
+            </NavigationView.FooterMenuItems>
 
             <Grid Margin="{StaticResource NavigationViewPageContentMargin}">
                 <Frame x:Name="ContentFrame" Navigated="ContentFrame_Navigated"/>

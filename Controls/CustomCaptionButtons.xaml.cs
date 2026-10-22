@@ -5,8 +5,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Windows.Foundation;
 using Windows.Graphics;
@@ -17,6 +19,11 @@ namespace YSWinUI3.Controls;
 
 public sealed partial class CustomCaptionButtons : UserControl, IDisposable
 {
+    private static readonly TimeSpan CaptionHoverEnterAnimationDuration = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan CaptionHoverExitAnimationDuration = TimeSpan.FromMilliseconds(130);
+    private const double InactiveGlyphOpacity = 0.48;
+    private const string InactiveCaptionForegroundResourceKey = "WindowCaptionForegroundDisabled";
+
     public static readonly DependencyProperty ButtonHeightProperty =
         DependencyProperty.Register(nameof(ButtonHeight), typeof(double), typeof(CustomCaptionButtons), new PropertyMetadata(48d, OnButtonLayoutChanged));
 
@@ -203,6 +210,19 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
     private bool _attached;
     private bool _loaded;
     private bool _syncingRegions;
+    private bool _isWindowActive = true;
+    private bool _hasPointerMotionSample;
+    private bool _hasRecentPointerSpeed;
+    private NativePoint _lastPointerPosition;
+    private long _lastPointerMotionTimestamp;
+    private double _pointerSpeedPixelsPerSecond;
+
+    private readonly SolidColorBrush _minBackgroundBrush = new(Colors.Transparent);
+    private readonly SolidColorBrush _maxBackgroundBrush = new(Colors.Transparent);
+    private readonly SolidColorBrush _closeBackgroundBrush = new(Colors.Transparent);
+    private Storyboard? _minBackgroundAnimation;
+    private Storyboard? _maxBackgroundAnimation;
+    private Storyboard? _closeBackgroundAnimation;
 
     private VisualStateKind _minState = VisualStateKind.Normal;
     private VisualStateKind _maxState = VisualStateKind.Normal;
@@ -215,6 +235,9 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
     public CustomCaptionButtons()
     {
         InitializeComponent();
+        MinButtonHost.Background = _minBackgroundBrush;
+        MaxButtonHost.Background = _maxBackgroundBrush;
+        CloseButtonHost.Background = _closeBackgroundBrush;
         ApplyButtonLayout();
 
         Loaded += CustomCaptionButtons_Loaded;
@@ -244,6 +267,7 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
     private void CustomCaptionButtons_Unloaded(object sender, RoutedEventArgs e)
     {
         _loaded = false;
+        StopBackgroundAnimations();
     }
 
     private void AnySizeChanged(object sender, SizeChangedEventArgs e)
@@ -280,6 +304,8 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
             return;
 
         _hWnd = WindowNative.GetWindowHandle(_window);
+        _isWindowActive = GetForegroundWindow() == _hWnd;
+        UpdatePointerMotionSample();
         var windowId = Win32Interop.GetWindowIdFromWindow(_hWnd);
         _appWindow = AppWindow.GetFromWindowId(windowId);
         _nonClientPointerSource = InputNonClientPointerSource.GetForWindowId(windowId);
@@ -314,12 +340,26 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
 
     private void Window_Activated(object sender, WindowActivatedEventArgs args)
     {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            UpdateMaxGlyph();
-            ApplyAllVisuals();
-            SyncNonClientRegions();
-        });
+        QueueWindowActivationVisualRefresh();
+    }
+
+    private void QueueWindowActivationVisualRefresh()
+    {
+        DispatcherQueue.TryEnqueue(RefreshWindowActivationVisuals);
+    }
+
+    private void RefreshWindowActivationVisuals()
+    {
+        if (!_attached || _hWnd == IntPtr.Zero)
+            return;
+
+        // Query the actual foreground window after activation messages have finished
+        // processing, then repaint every caption button even if the active state did
+        // not change. This also repairs a stale inactive glyph after rapid activation.
+        _isWindowActive = GetForegroundWindow() == _hWnd;
+        UpdateMaxGlyph();
+        ApplyAllVisuals();
+        SyncNonClientRegions();
     }
 
     public void RefreshForTheme(ElementTheme theme)
@@ -479,6 +519,7 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
     public void Dispose()
     {
         ReleaseClientPointerCaptures();
+        StopBackgroundAnimations();
 
         RootGrid.SizeChanged -= AnySizeChanged;
         MinButtonHost.SizeChanged -= AnySizeChanged;
@@ -554,47 +595,212 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
         ApplyCloseVisual();
     }
 
-    private void ApplyMinVisual()
+    private void ApplyMinVisual(bool animateHover = false)
     {
         if (!CanMinimize())
         {
-            MinButtonHost.Background = new SolidColorBrush(Colors.Transparent);
+            SetBackgroundColor(_minBackgroundBrush, ref _minBackgroundAnimation, Colors.Transparent, animate: false);
             MinGlyph.Foreground = new SolidColorBrush(GetDisabledForegroundColor());
+            MinGlyph.Opacity = 1;
             return;
         }
 
-        ApplyStandardVisual(MinButtonHost, MinGlyph, _minState);
+        ApplyStandardVisual(
+            MinGlyph,
+            _minBackgroundBrush,
+            ref _minBackgroundAnimation,
+            _minState,
+            animateHover);
     }
 
-    private void ApplyMaxVisual()
+    private void ApplyMaxVisual(bool animateHover = false)
     {
         if (!CanMaximizeOrRestore())
         {
-            MaxButtonHost.Background = new SolidColorBrush(Colors.Transparent);
+            SetBackgroundColor(_maxBackgroundBrush, ref _maxBackgroundAnimation, Colors.Transparent, animate: false);
             MaxGlyph.Foreground = new SolidColorBrush(GetDisabledForegroundColor());
+            MaxGlyph.Opacity = 1;
             return;
         }
 
-        ApplyStandardVisual(MaxButtonHost, MaxGlyph, _maxState);
+        ApplyStandardVisual(
+            MaxGlyph,
+            _maxBackgroundBrush,
+            ref _maxBackgroundAnimation,
+            _maxState,
+            animateHover);
     }
 
-    private void ApplyCloseVisual()
+    private void ApplyCloseVisual(bool animateHover = false)
     {
         if (!CanClose())
         {
-            CloseButtonHost.Background = new SolidColorBrush(Colors.Transparent);
+            SetBackgroundColor(_closeBackgroundBrush, ref _closeBackgroundAnimation, Colors.Transparent, animate: false);
             CloseGlyph.Foreground = new SolidColorBrush(GetDisabledForegroundColor());
+            CloseGlyph.Opacity = 1;
             return;
         }
 
-        CloseButtonHost.Background = new SolidColorBrush(GetCloseBackground(_closeState));
-        CloseGlyph.Foreground = new SolidColorBrush(GetCloseForeground(_closeState));
+        SetBackgroundColor(
+            _closeBackgroundBrush,
+            ref _closeBackgroundAnimation,
+            GetCloseBackground(_closeState),
+            animateHover,
+            GetHoverAnimationDuration(_closeState));
+        CloseGlyph.Foreground = GetCaptionForegroundBrush(GetCloseForeground(_closeState), _closeState);
+        CloseGlyph.Opacity = 1;
     }
 
-    private void ApplyStandardVisual(Border host, TextBlock glyph, VisualStateKind state)
+    private void ApplyStandardVisual(
+        TextBlock glyph,
+        SolidColorBrush backgroundBrush,
+        ref Storyboard? backgroundAnimation,
+        VisualStateKind state,
+        bool animateHover)
     {
-        host.Background = new SolidColorBrush(GetStandardBackground(state));
-        glyph.Foreground = new SolidColorBrush(GetStandardForeground(state));
+        SetBackgroundColor(
+            backgroundBrush,
+            ref backgroundAnimation,
+            GetStandardBackground(state),
+            animateHover,
+            GetHoverAnimationDuration(state));
+        glyph.Foreground = GetCaptionForegroundBrush(GetStandardForeground(state), state);
+        glyph.Opacity = 1;
+    }
+
+    private Brush GetCaptionForegroundBrush(Windows.UI.Color activeColor, VisualStateKind state)
+    {
+        if (_isWindowActive || state != VisualStateKind.Normal)
+            return new SolidColorBrush(activeColor);
+
+        if (Application.Current.Resources.TryGetValue(
+                InactiveCaptionForegroundResourceKey,
+                out object inactiveCaptionForeground) &&
+            inactiveCaptionForeground is Brush inactiveCaptionBrush)
+        {
+            return inactiveCaptionBrush;
+        }
+
+        if (_appWindow?.TitleBar.ButtonInactiveForegroundColor is Windows.UI.Color titleBarInactiveColor)
+        {
+            return new SolidColorBrush(titleBarInactiveColor) { Opacity = InactiveGlyphOpacity };
+        }
+
+        // The WinUI theme resource above is normally available. Keep the title bar
+        // legible with the same inactive treatment if a host app omits it.
+        return new SolidColorBrush(activeColor) { Opacity = InactiveGlyphOpacity };
+    }
+
+    private static bool IsHoverTransition(VisualStateKind previous, VisualStateKind next)
+    {
+        return (previous == VisualStateKind.Normal && next == VisualStateKind.Hover) ||
+               (previous == VisualStateKind.Hover && next == VisualStateKind.Normal);
+    }
+
+    private TimeSpan GetHoverAnimationDuration(VisualStateKind state)
+    {
+        return state == VisualStateKind.Hover
+            ? GetHoverEnterAnimationDuration()
+            : CaptionHoverExitAnimationDuration;
+    }
+
+    private TimeSpan GetHoverEnterAnimationDuration()
+    {
+        if (!_hasRecentPointerSpeed ||
+            Stopwatch.GetElapsedTime(_lastPointerMotionTimestamp) > TimeSpan.FromMilliseconds(250))
+        {
+            return CaptionHoverEnterAnimationDuration;
+        }
+
+        // Faster pointer movement makes the hover response shorter. Keep the range
+        // bounded so slow movements remain visible and fast ones still interpolate.
+        double durationMilliseconds = Math.Clamp(
+            80d - (_pointerSpeedPixelsPerSecond / 25d),
+            20d,
+            80d);
+        return TimeSpan.FromMilliseconds(durationMilliseconds);
+    }
+
+    private void UpdatePointerMotionSample()
+    {
+        if (!GetCursorPos(out NativePoint currentPosition))
+            return;
+
+        long timestamp = Stopwatch.GetTimestamp();
+        if (_hasPointerMotionSample)
+        {
+            TimeSpan elapsed = Stopwatch.GetElapsedTime(_lastPointerMotionTimestamp, timestamp);
+            if (elapsed > TimeSpan.Zero && elapsed <= TimeSpan.FromMilliseconds(250))
+            {
+                double deltaX = currentPosition.X - _lastPointerPosition.X;
+                double deltaY = currentPosition.Y - _lastPointerPosition.Y;
+                _pointerSpeedPixelsPerSecond = Math.Sqrt((deltaX * deltaX) + (deltaY * deltaY)) /
+                                               elapsed.TotalSeconds;
+                _hasRecentPointerSpeed = true;
+            }
+            else
+            {
+                _pointerSpeedPixelsPerSecond = 0;
+                _hasRecentPointerSpeed = false;
+            }
+        }
+
+        _lastPointerPosition = currentPosition;
+        _lastPointerMotionTimestamp = timestamp;
+        _hasPointerMotionSample = true;
+    }
+
+    private void SetBackgroundColor(
+        SolidColorBrush brush,
+        ref Storyboard? currentAnimation,
+        Windows.UI.Color targetColor,
+        bool animate,
+        TimeSpan animationDuration = default)
+    {
+        // Read the currently rendered value before stopping the previous animation so
+        // a quick pointer reversal starts from the on-screen color without jumping.
+        Windows.UI.Color currentColor = brush.Color;
+        currentAnimation?.Stop();
+        currentAnimation = null;
+
+        if (!animate || currentColor == targetColor)
+        {
+            brush.Color = targetColor;
+            return;
+        }
+
+        // The base value is the destination. FillBehavior.Stop then leaves the brush
+        // at that value after the short pointer-over transition completes.
+        brush.Color = targetColor;
+
+        var colorAnimation = new ColorAnimation
+        {
+            From = currentColor,
+            To = targetColor,
+            Duration = new Duration(animationDuration == default
+                ? CaptionHoverExitAnimationDuration
+                : animationDuration),
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+            EnableDependentAnimation = true,
+            FillBehavior = FillBehavior.Stop
+        };
+        Storyboard.SetTarget(colorAnimation, brush);
+        Storyboard.SetTargetProperty(colorAnimation, "Color");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(colorAnimation);
+        currentAnimation = storyboard;
+        storyboard.Begin();
+    }
+
+    private void StopBackgroundAnimations()
+    {
+        _minBackgroundAnimation?.Stop();
+        _maxBackgroundAnimation?.Stop();
+        _closeBackgroundAnimation?.Stop();
+        _minBackgroundAnimation = null;
+        _maxBackgroundAnimation = null;
+        _closeBackgroundAnimation = null;
     }
 
     private Windows.UI.Color GetStandardBackground(VisualStateKind state)
@@ -642,17 +848,33 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
         switch (kind)
         {
             case ClientButtonKind.Minimize:
+            {
                 if (_minState == state) return;
+                bool animateMinHover = IsHoverTransition(_minState, state);
                 _minState = state;
-                ApplyMinVisual();
+                ApplyMinVisual(animateMinHover);
                 break;
+            }
 
             case ClientButtonKind.Close:
+            {
                 if (_closeState == state) return;
+                bool animateCloseHover = IsHoverTransition(_closeState, state);
                 _closeState = state;
-                ApplyCloseVisual();
+                ApplyCloseVisual(animateCloseHover);
                 break;
+            }
         }
+    }
+
+    private void SetMaxState(VisualStateKind state)
+    {
+        if (_maxState == state)
+            return;
+
+        bool animateHover = IsHoverTransition(_maxState, state);
+        _maxState = state;
+        ApplyMaxVisual(animateHover);
     }
 
     private bool IsPointerInside(FrameworkElement element, PointerRoutedEventArgs e)
@@ -730,8 +952,7 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
         if (_maxNcPressed || _maxState != VisualStateKind.Normal)
         {
             _maxNcPressed = false;
-            _maxState = VisualStateKind.Normal;
-            ApplyMaxVisual();
+            SetMaxState(VisualStateKind.Normal);
         }
     }
 
@@ -741,16 +962,14 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
             _capturedClientButton != ClientButtonKind.Minimize &&
             _minState != VisualStateKind.Normal)
         {
-            _minState = VisualStateKind.Normal;
-            ApplyMinVisual();
+            SetClientState(ClientButtonKind.Minimize, VisualStateKind.Normal);
         }
 
         if (active != ClientButtonKind.Close &&
             _capturedClientButton != ClientButtonKind.Close &&
             _closeState != VisualStateKind.Normal)
         {
-            _closeState = VisualStateKind.Normal;
-            ApplyCloseVisual();
+            SetClientState(ClientButtonKind.Close, VisualStateKind.Normal);
         }
     }
 
@@ -908,8 +1127,7 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
     private void ResetMaxVisual()
     {
         _maxNcPressed = false;
-        _maxState = VisualStateKind.Normal;
-        ApplyMaxVisual();
+        SetMaxState(VisualStateKind.Normal);
     }
 
     private bool IsMaxRegion(NonClientPointerEventArgs args)
@@ -922,8 +1140,7 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
         if (!CanMaximizeOrRestore() || !IsMaxRegion(args))
             return;
 
-        _maxState = _maxNcPressed ? VisualStateKind.Pressed : VisualStateKind.Hover;
-        ApplyMaxVisual();
+        SetMaxState(_maxNcPressed ? VisualStateKind.Pressed : VisualStateKind.Hover);
     }
 
     private void NonClientPointerSource_PointerExited(InputNonClientPointerSource sender, NonClientPointerEventArgs args)
@@ -939,11 +1156,9 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
         if (!CanMaximizeOrRestore() || !IsMaxRegion(args))
             return;
 
-        _maxState = _maxNcPressed
+        SetMaxState(_maxNcPressed
             ? (args.IsPointInRegion ? VisualStateKind.Pressed : VisualStateKind.Normal)
-            : (args.IsPointInRegion ? VisualStateKind.Hover : VisualStateKind.Normal);
-
-        ApplyMaxVisual();
+            : (args.IsPointInRegion ? VisualStateKind.Hover : VisualStateKind.Normal));
     }
 
     private void NonClientPointerSource_PointerPressed(InputNonClientPointerSource sender, NonClientPointerEventArgs args)
@@ -952,8 +1167,7 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
             return;
 
         _maxNcPressed = true;
-        _maxState = VisualStateKind.Pressed;
-        ApplyMaxVisual();
+        SetMaxState(VisualStateKind.Pressed);
     }
 
     private void NonClientPointerSource_PointerReleased(InputNonClientPointerSource sender, NonClientPointerEventArgs args)
@@ -962,8 +1176,7 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
             return;
 
         _maxNcPressed = false;
-        _maxState = args.IsPointInRegion ? VisualStateKind.Hover : VisualStateKind.Normal;
-        ApplyMaxVisual();
+        SetMaxState(args.IsPointInRegion ? VisualStateKind.Hover : VisualStateKind.Normal);
     }
 
     private void NonClientPointerSource_ExitedMoveSize(InputNonClientPointerSource sender, ExitedMoveSizeEventArgs args)
@@ -1021,6 +1234,16 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
         nuint uIdSubclass,
         nuint dwRefData)
     {
+        if (msg is WM_MOUSEMOVE or WM_NCMOUSEMOVE)
+        {
+            UpdatePointerMotionSample();
+        }
+
+        if (msg is WM_ACTIVATE or WM_NCACTIVATE)
+        {
+            QueueWindowActivationVisualRefresh();
+        }
+
         switch (msg)
         {
             case WM_CANCELMODE:
@@ -1056,8 +1279,19 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
     }
 
     private const uint WM_SIZE = 0x0005;
+    private const uint WM_ACTIVATE = 0x0006;
     private const uint WM_CANCELMODE = 0x001F;
+    private const uint WM_MOUSEMOVE = 0x0200;
     private const uint WM_CAPTURECHANGED = 0x0215;
+    private const uint WM_NCACTIVATE = 0x0086;
+    private const uint WM_NCMOUSEMOVE = 0x00A0;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate IntPtr SUBCLASSPROC(
@@ -1089,4 +1323,11 @@ public sealed partial class CustomCaptionButtons : UserControl, IDisposable
         uint msg,
         IntPtr wParam,
         IntPtr lParam);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out NativePoint point);
 }

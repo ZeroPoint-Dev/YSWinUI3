@@ -1,0 +1,99 @@
+﻿<UserControl
+    x:Class="YSWinUI3.Controls.CustomCaptionButtons"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:ConnectionId='2' x:Name="RootGrid"
+          Width="138"
+          Height="48"
+          MinWidth="138"
+          Background="Transparent"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Stretch"
+          UseLayoutRounding="True"
+                                                >
+        <Grid.ColumnDefinitions>
+            <!-- Column widths are updated by the ButtonWidth dependency property. -->
+            <ColumnDefinition x:ConnectionId='3' x:Name="MinColumn" Width="46"/>
+            <ColumnDefinition x:ConnectionId='4' x:Name="MaxColumn" Width="46"/>
+            <ColumnDefinition x:ConnectionId='5' x:Name="CloseColumn" Width="46"/>
+        </Grid.ColumnDefinitions>
+
+        <Border x:ConnectionId='6' x:Name="MinButtonHost"
+                Grid.Column="0"
+                Background="Transparent"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                ToolTipService.ToolTip="最小化"
+                                                             
+                                                           
+                                                         
+                                                             
+                                                               
+                                                               
+                                                                     >
+            <Viewbox Width="10"
+                     Height="10"
+                     Stretch="Uniform"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     IsHitTestVisible="False">
+                <TextBlock x:ConnectionId='11' x:Name="MinGlyph"
+                           Text="&#xE921;"
+                           FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                           IsHitTestVisible="False"/>
+            </Viewbox>
+        </Border>
+
+        <Border x:ConnectionId='7' x:Name="MaxButtonHost"
+                Grid.Column="1"
+                Background="Transparent"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                ToolTipService.ToolTip="最大化"
+                IsHitTestVisible="False">
+            <Viewbox Width="10"
+                     Height="10"
+                     Stretch="Uniform"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     IsHitTestVisible="False">
+                <TextBlock x:ConnectionId='10' x:Name="MaxGlyph"
+                           Text="&#xE922;"
+                           FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                           IsHitTestVisible="False"/>
+            </Viewbox>
+        </Border>
+
+        <Border x:ConnectionId='8' x:Name="CloseButtonHost"
+                Grid.Column="2"
+                Background="Transparent"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                ToolTipService.ToolTip="关闭"
+                                                               
+                                                             
+                                                           
+                                                               
+                                                                 
+                                                                 
+                                                                       >
+            <Viewbox Width="10"
+                     Height="10"
+                     Stretch="Uniform"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     IsHitTestVisible="False">
+                <TextBlock x:ConnectionId='9' x:Name="CloseGlyph"
+                           Text="&#xE8BB;"
+                           FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                           IsHitTestVisible="False"/>
+            </Viewbox>
+        </Border>
+    </Grid>
+</UserControl>
+
+

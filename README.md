@@ -185,6 +185,46 @@ private void ConfigureNavigation()
 _navigation.Dispose();
 ```
 
+### 可选的 Microsoft Store 卡片导航
+
+`StoreNavigationStyle` 是显式启用的附加样式。未调用 `Attach` 时，`NavigationView` 保持 WinUI 默认外观；该样式只在 `PaneDisplayMode="Left"` 时生效，切到顶部或其他模式会恢复默认布局，切回左侧后重新应用。
+
+```csharp
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using YSWinUI3.Navigation;
+
+private StoreNavigationStyle _storeNavigationStyle = null!;
+
+private void ConfigureStoreNavigation()
+{
+    _storeNavigationStyle = StoreNavigationStyle.Attach(RootNavigationView);
+}
+
+private void MainWindow_Closed(object sender, WindowEventArgs args)
+{
+    _storeNavigationStyle.Dispose();
+}
+```
+
+样式保留 `NavigationViewItem` 的系统背景、圆角和选择指示器，默认隐藏展开按钮且保留系统返回按钮。默认展开/紧凑宽度为 72/48 DIP；卡片为 72×68 DIP，首个菜单项顶部留 3 DIP，卡片内部绘制区域为 64×64 DIP；图标宿主为 24×24 DIP，字号为 20，标签高 14 DIP、字号 11，图标和标签间距为 2 DIP。未选中项显示居中的图标和文字组合；选中时文字先淡出 125ms，再将图标下移 8 DIP、耗时 190ms，形成俯冲到卡片中心的效果。取消选中时图标在 190ms 内回位，文字在 150ms 内淡入。悬停时图标由 0.68 淡入到完整不透明度，按下时图标缩至 0.93 后恢复；项目背景、圆角和选择指示器仍由 WinUI 默认模板绘制。切到顶部或其他模式后会恢复默认项目布局，回到左侧时重新应用。可以通过 `StoreNavigationOptions` 调整尺寸、首项间距和展开按钮行为。
+
+选中图标可单独提供填充版本；选中时图标颜色会跟随系统强调色，并在系统强调色或深浅主题变化时刷新。库不添加深浅主题过渡或选中图标切换动画，悬停和按压反馈仍保留：
+
+```csharp
+StoreNavigationStyle.SetSelectedIcon(
+    HomeItem,
+    new FontIcon
+    {
+        FontFamily = new FontFamily("ms-appx:///Assets/SegoeFluentIcons.ttf#Segoe Fluent Icons"),
+        Glyph = "\uEA8A" // 示例为 Home 填充字形，使用时换成对应图标
+    });
+
+_storeNavigationStyle.Refresh(); // 运行时增删菜单项后刷新；SelectedIcon 变化会自动刷新
+```
+
+把控制器保存在窗口成员中，并在窗口关闭时调用 `Dispose()`。未设置独立的 `SelectedIcon` 时，选中项会用系统强调色显示原图标。
+
 ## 设置持久化
 
 `YSSettingsStore` 使用应用的本地数据目录保存 JSON 设置：
